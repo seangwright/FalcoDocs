@@ -20,7 +20,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Watch Include="**\*.css;**\*.html;..\docs\**\*.md" Exclude="build\**\*" />
+    <Watch Include="**\*.css;**\*.html;..\**\*.md" Exclude="build\**\*;..\docs\markup.md" />
   </ItemGroup>
 
   <Target Name="GenerateSite">

@@ -1,6 +1,7 @@
 open System
 open System.IO
 open System.Linq
+open System.Net.Http
 open System.Text.RegularExpressions
 open Markdig
 open Markdig.Extensions.Yaml
@@ -155,8 +156,9 @@ module Docs =
 [<EntryPoint>]
 let main args =
     if args.Length <> 1 then failwith "Must provide the working directory as the first argument"
+
     let workingDir = DirectoryInfo(args.[0])
-    let template = Templates(workingDir.FullName)
+    use http = new HttpClient()
 
     // Clean build
     Log.info "Clearing build directory..."
@@ -169,10 +171,11 @@ let main args =
     Directory.copyRecursive buildDir assetsDir
 
     // Render homepage
-    Log.info "Rendering homepage..."
-    let homepageFilename = Path.Join(workingDir.FullName, "../README.md")
-    let mainContent = Markdown.renderFile homepageFilename
+    let template = Templates(workingDir.FullName)
 
+    Log.info "Rendering homepage..."
+    let indexMarkdown = http.GetStringAsync(@"https://raw.githubusercontent.com/pimbrouwers/Falco/develop/README.md").Result
+    let mainContent = Markdown.render indexMarkdown
 
     { Title = String.Empty
       MainContent = mainContent.Body
@@ -184,8 +187,17 @@ let main args =
     let docsDir = DirectoryInfo(Path.Join(workingDir.FullName, "../docs"))
     let docsBuildDir = Directory.CreateDirectory(Path.Join(buildDir.FullName, "docs"))
 
+    Log.info "Downloading external markdown files..."
+    let markupMarkdown = http.GetStringAsync(@"https://raw.githubusercontent.com/pimbrouwers/Falco.Markup/master/README.md").Result
+    let markupFilename = Path.Join(docsDir.FullName, "markup.md")
+    if (File.Exists(markupFilename)) then File.Delete(markupFilename)
+    File.WriteAllText(markupFilename, markupMarkdown)
+
+
     Log.info "Rendering docs..."
-    Docs.build template (docsDir.GetFiles()) docsBuildDir
+    let readme = FileInfo(Path.Join(workingDir.FullName, "../readme.md"))
+    let docFiles = Array.append [|readme|] (docsDir.GetFiles("*.md"))
+    Docs.build template docFiles docsBuildDir
 
     // Additional languages
     let languageCodes = []
