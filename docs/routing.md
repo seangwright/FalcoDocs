@@ -4,7 +4,7 @@ Routing is responsible for matching incoming HTTP requests and dispatching those
 
 Bearing this in mind, routing can practically be represented by a list of these "mappings" known in Falco as an `HttpEndpoint` which bind together: a route, verb and handler.
 
-> Note: All of the following examples are _fully functional_ web apps.
+> Note: All of the following examples are _fully functioning_ web apps.
 
 ```fsharp
 open Falco
