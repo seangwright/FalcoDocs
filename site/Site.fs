@@ -162,7 +162,7 @@ let main args =
 
     // Clean build
     Log.info "Clearing build directory..."
-    let buildDir = Directory.CreateDirectory(Path.Join(workingDir.FullName, "build"))
+    let buildDir = Directory.CreateDirectory(Path.Join(workingDir.FullName, "../docs"))
     if buildDir.Exists then buildDir.Delete(recursive = true)
 
     // Copy asset
@@ -184,7 +184,7 @@ let main args =
     |> fun text -> File.WriteAllText(Path.Join(buildDir.FullName, "index.html"), text)
 
     // Render docs
-    let docsDir = DirectoryInfo(Path.Join(workingDir.FullName, "../docs"))
+    let docsDir = DirectoryInfo(Path.Join(workingDir.FullName, "../content"))
     let docsBuildDir = Directory.CreateDirectory(Path.Join(buildDir.FullName, "docs"))
 
     Log.info "Downloading external markdown files..."

@@ -115,12 +115,8 @@ let notFoundHandler : HttpHandler =
 ### Add a header(s) to the response
 
 ```fsharp
-let handlerWithHeader : HttpHandler =
-    Response.withHeader "Content-Language" "en-us"
-    >> Response.ofPlainText "Hello world"
-
 let handlerWithHeaders : HttpHandler =
-    Response.withHeaders [ "Content-Language" "en-us" ]
+    Response.withHeaders [ "Content-Language", "en-us" ]
     >> Response.ofPlainText "Hello world"
 ```
 
@@ -139,4 +135,14 @@ let handlerWithCookieOptions : HttpHandler =
     options.Expires <- DateTime.Now.Minutes(15)
     Response.withCookie options "greeted" "1"
     >> Response.ofPlainText "Hello world"
+```
+
+
+## Debugging Requests
+
+For debugging scenarios, the `Response.debugRequest` will pretty print the request details to the screen.
+
+```fsharp
+let debugHandler : HttpHandler =
+    Response.debugRequest
 ```

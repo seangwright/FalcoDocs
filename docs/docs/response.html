@@ -52,6 +52,7 @@
       <li><a href="response.html#redirect-301302-response">Redirect (301/302) Response</a></li>
       <li><a href="response.html#content-disposition">Content Disposition</a></li>
       <li><a href="response.html#response-modifiers">Response Modifiers</a></li>
+      <li><a href="response.html#debugging-requests">Debugging Requests</a></li>
     </ul>
   </li>
   <li><a href="request.html">Accessing request data</a>
@@ -82,134 +83,116 @@
   <li><a href="dependency-injection.html">Dependency Injection</a></li>
 </ul></div>
     </nav>
-    <main class="w-80-l fl-l pl3-l"><h1 id="request-handling">Request Handling</h1>
-<p>Falco exposes a <strong>uniform API</strong> to obtain typed values from <code>IFormCollection</code>, <code>IQueryCollection</code>, <code>RouteValueDictionary</code>, <code>IHeaderCollection</code>, and <code>IRequestCookieCollection</code>. All implementations are derivatives of <code>StringCollectionReader</code> which is an abstraction intended to make it easier to work with the string-based key/value collections.</p>
-<h2 id="route-binding">Route Binding</h2>
-<pre><code class="language-fsharp">// Assuming a route pattern of /{Name}
-let mapRouteHandler : HttpHandler =
-    let routeMap (r : RouteCollectionReader) =
-        r.GetString &quot;Name&quot; &quot;John Doe&quot;
-
-    Request.mapRoute routeMap Response.ofJson
-
-let manualRouteHandler : HttpHandler = fun ctx -&gt;
-    let r = Request.getRoute ctx
-    let name = r.GetString &quot;Name&quot; &quot;John Doe&quot;
-
-    Response.ofPlainText name ctx
+    <main class="w-80-l fl-l pl3-l"><h1 id="response-writing">Response Writing</h1>
+<p>The <code>HttpHandler</code> type is used to represent the processing of a request. It can be thought of as the eventual (i.e., asynchronous) completion and processing of an HTTP request, defined in F# as: <code>HttpContext -&gt; Task</code>. Handlers will typically involve some combination of: <a href="request.html#route-binding">route inspection</a>, <a href="request.html#form-binding">form</a>/<a href="request.html#query-binding">query</a> binding, business logic and finally response writing. With access to the <code>HttpContext</code> you are able to inspect all components of the request, and manipulate the response in any way you choose.</p>
+<h2 id="plain-text-responses">Plain Text responses</h2>
+<pre><code class="language-fsharp">let textHandler : HttpHandler =
+    Response.ofPlainText &quot;hello world&quot;
 </code></pre>
-<h2 id="query-binding">Query Binding</h2>
-<pre><code class="language-fsharp">type Person =
-    { FirstName : string
-      LastName : string }
+<h2 id="html-responses">HTML responses</h2>
+<p>Write your views in plain F#, directly in your assembly, using the <a href="markup.html">Markup</a> module. A performant F# DSL capable of generating any angle-bracket markup. Also available directly as a standalone <a href="https://www.nuget.org/packages/Falco.Markup">NuGet</a> package.</p>
+<pre><code class="language-fsharp">let htmlHandler : HttpHandler =
+    let html =
+        Elem.html [ Attr.lang &quot;en&quot; ] [
+            Elem.head [] []
+            Elem.body [] [
+                Elem.h1 [] [ Text.raw &quot;Sample App&quot; ]
+            ]
+        ]
 
-let mapQueryHandler : HttpHandler =
-    let queryMap (q : QueryCollectionReader) =
-        let first = q.GetString &quot;FirstName&quot; &quot;John&quot; // Get value or return default value
-        let last = q.GetString &quot;LastName&quot; &quot;Doe&quot;
-        { FirstName = first; LastName = last }
+    Response.ofHtml html
 
-    Request.mapQuery queryMap Response.ofJson
+// Automatically protect against XSS attacks
+let secureHtmlHandler : HttpHandler =
+    let html token =
+        Elem.html [] [
+            Elem.body [] [
+                Elem.form [ Attr.method &quot;post&quot; ] [
+                    Elem.input [ Attr.name &quot;first_name&quot; ]
 
-let manualQueryHandler : HttpHandler = fun ctx -&gt;
-    let q = Request.getQuery ctx
+                    Elem.input [ Attr.name &quot;last_name&quot; ]
 
-    let person =
-        { FirstName = q.GetString &quot;FirstName&quot; &quot;John&quot; // Get value or return default value
-          LastName  = q.GetString &quot;LastName&quot; &quot;Doe&quot; }
+                    // using the CSRF HTML helper
+                    Xss.antiforgeryInput token
 
-    Response.ofJson person ctx
+                    Elem.input [ Attr.type' &quot;submit&quot;; Attr.value &quot;Submit&quot; ]
+                ]
+            ]
+        ]
+
+    Response.ofHtmlCsrf html
 </code></pre>
-<h2 id="form-binding">Form Binding</h2>
-<p>The <code>FormCollectionReader</code> has full access to the <code>IFormFilesCollection</code> via the <code>_.Files</code> member.</p>
-<blockquote>
-<p>Note the addition of <code>Request.mapFormSecure</code>, which will automatically validate CSRF token for you.</p>
-</blockquote>
-<pre><code class="language-fsharp">type Person =
-    { FirstName : string
-      LastName : string }
-
-let mapFormHandler : HttpHandler =
-    let formMap (f : FormCollectionReader) =
-        let first = f.GetString &quot;FirstName&quot; &quot;John&quot; // Get value or return default value
-        let last = f.GetString &quot;LastName&quot; &quot;Doe&quot;
-        { FirstName = first; LastName = last }
-
-    Request.mapForm formMap Response.ofJson
-
-let mapFormSecureHandler : HttpHandler =
-    let formMap (f : FormCollectionReader) =
-        let first = f.GetString &quot;FirstName&quot; &quot;John&quot; // Get value or return default value
-        let last = f.GetString &quot;LastName&quot; &quot;Doe&quot;
-        { FirstName = first; LastName = last }
-
-    let handleInvalidCsrf : HttpHandler =
-        Response.withStatusCode 400 &gt;&gt; Response.ofEmpty
-
-    Request.mapFormSecure formMap Response.ofJson handleInvalidCsrf
-
-let manualFormHandler : HttpHandler = fun ctx -&gt; task {
-    let! f : FormCollectionReader = Request.getForm ctx
-
-    let person =
-        { FirstName = f.GetString &quot;FirstName&quot; &quot;John&quot; // Get value or return default value
-          LastName = f.GetString &quot;LastName&quot; &quot;Doe&quot; }
-
-    return! Response.ofJson person ctx
-}
+<p>Alternatively, if you're using an external view engine and want to return an HTML response from a string literal, then you can use <code>Response.ofHtmlString</code>.</p>
+<pre><code class="language-fsharp">let htmlHandler : HttpHandler =
+    Response.ofHtmlString &quot;&lt;html&gt;...&lt;/html&gt;&quot;
 </code></pre>
-<h3 id="multipartform-data-binding"><code>multipart/form-data</code> Binding</h3>
-<p>Microsoft defines <a href="https://docs.microsoft.com/en-us/aspnet/core/mvc/models/file-uploads#upload-large-files-with-streaming">large upload</a> as anything <strong>&gt; 64KB</strong>, which well... is most uploads. Anything beyond this size and they recommend streaming the multipart data to avoid excess memory consumption.</p>
-<p>To make this process <strong>a lot</strong> easier Falco provides a set of <code>HttpHandler</code>'s analogous to the form handlers above, which utilize an <code>HttpContext</code> extension method called <code>TryStreamFormAsync()</code> that will attempt to stream multipart form data, or return an error message indicating the likely problem.</p>
-<pre><code class="language-fsharp">let imageUploadHandler : HttpHandler =
-    let formBinder (f : FormCollectionReader) : IFormFile option =
-        f.TryGetFormFile &quot;profile_image&quot;
-
-    let uploadImage (profileImage : IFormFile option) : HttpHandler =
-        // Process the uploaded file ...
-
-    // Safely buffer the multipart form submission
-    Request.mapFormStream formBinder uploadImage
-
-let secureImageUploadHandler : HttpHandler =
-    let formBinder (f : FormCollectionReader) : IFormFile option =
-        f.TryGetFormFile &quot;profile_image&quot;
-
-    let uploadImage (profileImage : IFormFile option) : HttpHandler =
-        // Process the uploaded file ...
-
-    let handleInvalidCsrf : HttpHandler =
-        Response.withStatusCode 400 &gt;&gt; Response.ofEmpty
-
-    // Safely buffer the multipart form submission
-    Request.mapFormStreamSecure formBinder uploadImage handleInvalidCsrf
-</code></pre>
-<h2 id="json">JSON</h2>
+<h2 id="json-responses">JSON responses</h2>
 <p>These handlers use the .NET built-in <code>System.Text.Json.JsonSerializer</code>.</p>
 <pre><code class="language-fsharp">type Person =
-    { FirstName : string
-      LastName : string }
+    { First : string
+      Last  : string }
 
 let jsonHandler : HttpHandler =
-    { FirstName = &quot;John&quot;; LastName = &quot;Doe&quot; }
-    |&gt; Response.ofJson
+    let name = { First = &quot;John&quot;; Last = &quot;Doe&quot; }
+    Response.ofJson name
 
-let mapJsonHandler : HttpHandler =
-    let handleOk person : HttpHandler =
-        let message = sprintf &quot;hello %s %s&quot; person.First person.Last
-        Response.ofPlainText message
-
-    Request.mapJson handleOk
-
-let mapJsonOptionsHandler : HttpHandler =
+let jsonOptionsHandler : HttpHandler =
     let options = JsonSerializerOptions()
     options.IgnoreNullValues &lt;- true
+    let name = { First = &quot;John&quot;; Last = &quot;Doe&quot; }
+    Response.ofJson options name
+</code></pre>
+<h2 id="redirect-301302-response">Redirect (301/302) Response</h2>
+<pre><code class="language-fsharp">let oldUrlHandler : HttpHandler =
+    Response.redirectPermanently &quot;/new-url&quot; // HTTP 301
 
-    let handleOk person : HttpHandler =
-        let message = sprintf &quot;hello %s %s&quot; person.First person.Last
-        Response.ofPlainText message
+let redirectUrlHandler : HttpHandler =
+    Response.redirectTemporarily &quot;/new-url&quot; // HTTP 302
+</code></pre>
+<h2 id="content-disposition">Content Disposition</h2>
+<pre><code class="language-fsharp">let inlineBinaryHandler : HttpHandler =
+    let contentType = &quot;image/jpeg&quot;
+    let headers = [ HeaderNames.CacheControl,  &quot;no-store, max-age=0&quot; ]
+    let bytes = // ... binary data
+    Response.ofBinary contentType headers bytes
 
-    Request.mapJson options handleOk
+let attachmentHandler : HttpHandler =
+    let filename = &quot;profile.jpg&quot;
+    let contentType = &quot;image/jpeg&quot;
+    let headers = [ HeaderNames.CacheControl,  &quot;no-store, max-age=0&quot; ]
+    let bytes = // ... binary data
+    Response.ofAttachment filename contentType headers bytes
+</code></pre>
+<h2 id="response-modifiers">Response Modifiers</h2>
+<p>Response modifiers can be thought of as the in-and-out modification of the <code>HttpResponse</code>. A preamble to writing and returning. Since these functions receive the <code>Httpcontext</code> as input and return it as the only output, they can take advantage of function compoistion.</p>
+<h3 id="set-the-status-code-of-the-response">Set the status code of the response</h3>
+<pre><code class="language-fsharp">let notFoundHandler : HttpHandler =
+    Response.withStatusCode 404
+    &gt;&gt; Response.ofPlainText &quot;Not found&quot;
+</code></pre>
+<h3 id="add-a-headers-to-the-response">Add a header(s) to the response</h3>
+<pre><code class="language-fsharp">let handlerWithHeaders : HttpHandler =
+    Response.withHeaders [ &quot;Content-Language&quot;, &quot;en-us&quot; ]
+    &gt;&gt; Response.ofPlainText &quot;Hello world&quot;
+</code></pre>
+<h3 id="add-a-cookie-to-the-response">Add a cookie to the response</h3>
+<blockquote>
+<p>IMPORTANT: <em>Do not</em> use this for authentication. Instead use the <code>Response.signInAndRedirect</code> and <code>Response.signOutAndRedirect</code> functions found in the <a href="security.html">Authentication</a> module.</p>
+</blockquote>
+<pre><code class="language-fsharp">let handlerWithCookie : HttpHandler =
+    Response.withCookie &quot;greeted&quot; &quot;1&quot;
+    &gt;&gt; Response.ofPlainText &quot;Hello world&quot;
+
+let handlerWithCookieOptions : HttpHandler =
+    let options = CookieOptions()
+    options.Expires &lt;- DateTime.Now.Minutes(15)
+    Response.withCookie options &quot;greeted&quot; &quot;1&quot;
+    &gt;&gt; Response.ofPlainText &quot;Hello world&quot;
+</code></pre>
+<h2 id="debugging-requests">Debugging Requests</h2>
+<p>For debugging scenarios, the <code>Response.debugRequest</code> will pretty print the request details to the screen.</p>
+<pre><code class="language-fsharp">let debugHandler : HttpHandler =
+    Response.debugRequest
 </code></pre>
 </main>
 </div>
@@ -228,6 +211,7 @@ let mapJsonOptionsHandler : HttpHandler =
       <li><a href="response.html#redirect-301302-response">Redirect (301/302) Response</a></li>
       <li><a href="response.html#content-disposition">Content Disposition</a></li>
       <li><a href="response.html#response-modifiers">Response Modifiers</a></li>
+      <li><a href="response.html#debugging-requests">Debugging Requests</a></li>
     </ul>
   </li>
   <li><a href="request.html">Accessing request data</a>

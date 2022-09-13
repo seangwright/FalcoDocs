@@ -5,43 +5,45 @@ Falco exposes a __uniform API__ to obtain typed values from `IFormCollection`, `
 ## Route Binding
 
 ```fsharp
+open Falco
+
 // Assuming a route pattern of /{Name}
-let mapRouteHandler : HttpHandler =
-    let routeMap (r : RouteCollectionReader) =
-        r.GetString "Name" "John Doe"
-
-    Request.mapRoute routeMap Response.ofJson
-
 let manualRouteHandler : HttpHandler = fun ctx ->
     let r = Request.getRoute ctx
-    let name = r.GetString "Name" "John Doe"
-
+    let name = r.GetString "Name"
     Response.ofPlainText name ctx
+
+let mapRouteHandler : HttpHandler =
+    Request.mapRoute (fun r ->
+        r.GetString "Name")
+        Response.ofPlainText
+
 ```
 
 ## Query Binding
 
 ```fsharp
+open Falco
+
 type Person =
     { FirstName : string
       LastName : string }
-
-let mapQueryHandler : HttpHandler =
-    let queryMap (q : QueryCollectionReader) =
-        let first = q.GetString "FirstName" "John" // Get value or return default value
-        let last = q.GetString "LastName" "Doe"
-        { FirstName = first; LastName = last }
-
-    Request.mapQuery queryMap Response.ofJson
 
 let manualQueryHandler : HttpHandler = fun ctx ->
     let q = Request.getQuery ctx
 
     let person =
-        { FirstName = q.GetString "FirstName" "John" // Get value or return default value
-          LastName  = q.GetString "LastName" "Doe" }
+        { FirstName = q.GetString ("FirstName", "John") // Get value or return default value
+          LastName  = q.GetString ("LastName", "Doe") }
 
     Response.ofJson person ctx
+
+let mapQueryHandler : HttpHandler =
+    Request.mapQuery (fun q ->
+        let first = q.GetString ("FirstName", "John") // Get value or return default value
+        let last = q.GetString ("LastName", "Doe")
+        { FirstName = first; LastName = last })
+        Response.ofJson
 ```
 
 ## Form Binding
@@ -55,34 +57,32 @@ type Person =
     { FirstName : string
       LastName : string }
 
-let mapFormHandler : HttpHandler =
-    let formMap (f : FormCollectionReader) =
-        let first = f.GetString "FirstName" "John" // Get value or return default value
-        let last = f.GetString "LastName" "Doe"
-        { FirstName = first; LastName = last }
+let manualFormHandler : HttpHandler = fun ctx ->
+    task {
+        let! f : FormCollectionReader = Request.getForm ctx
 
-    Request.mapForm formMap Response.ofJson
+        let person =
+            { FirstName = f.GetString ("FirstName", "John") // Get value or return default value
+              LastName = f.GetString ("LastName", "Doe") }
+
+        return! Response.ofJson person ctx
+    }
+
+let mapFormHandler : HttpHandler =
+    Request.mapForm (fun f ->
+        let first = f.GetString ("FirstName", "John") // Get value or return default value
+        let last = f.GetString ("LastName", "Doe")
+        { FirstName = first; LastName = last })
+        Response.ofJson
 
 let mapFormSecureHandler : HttpHandler =
-    let formMap (f : FormCollectionReader) =
-        let first = f.GetString "FirstName" "John" // Get value or return default value
-        let last = f.GetString "LastName" "Doe"
-        { FirstName = first; LastName = last }
+    Request.mapFormSecure (fun f ->
+        let first = f.GetString ("FirstName", "John") // Get value or return default value
+        let last = f.GetString ("LastName", "Doe")
+        { FirstName = first; LastName = last })
+        Response.ofJson
+        (Response.withStatusCode 400 >> Response.ofEmpty)
 
-    let handleInvalidCsrf : HttpHandler =
-        Response.withStatusCode 400 >> Response.ofEmpty
-
-    Request.mapFormSecure formMap Response.ofJson handleInvalidCsrf
-
-let manualFormHandler : HttpHandler = fun ctx -> task {
-    let! f : FormCollectionReader = Request.getForm ctx
-
-    let person =
-        { FirstName = f.GetString "FirstName" "John" // Get value or return default value
-          LastName = f.GetString "LastName" "Doe" }
-
-    return! Response.ofJson person ctx
-}
 ```
 
 ### `multipart/form-data` Binding
@@ -126,7 +126,8 @@ type Person =
       LastName : string }
 
 let jsonHandler : HttpHandler =
-    { FirstName = "John"; LastName = "Doe" }
+    { FirstName = "John"
+      LastName = "Doe" }
     |> Response.ofJson
 
 let mapJsonHandler : HttpHandler =

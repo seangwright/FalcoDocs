@@ -52,6 +52,7 @@
       <li><a href="response.html#redirect-301302-response">Redirect (301/302) Response</a></li>
       <li><a href="response.html#content-disposition">Content Disposition</a></li>
       <li><a href="response.html#response-modifiers">Response Modifiers</a></li>
+      <li><a href="response.html#debugging-requests">Debugging Requests</a></li>
     </ul>
   </li>
   <li><a href="request.html">Accessing request data</a>
@@ -82,115 +83,106 @@
   <li><a href="dependency-injection.html">Dependency Injection</a></li>
 </ul></div>
     </nav>
-    <main class="w-80-l fl-l pl3-l"><h1 id="response-writing">Response Writing</h1>
-<p>The <code>HttpHandler</code> type is used to represent the processing of a request. It can be thought of as the eventual (i.e., asynchronous) completion and processing of an HTTP request, defined in F# as: <code>HttpContext -&gt; Task</code>. Handlers will typically involve some combination of: <a href="request.html#route-binding">route inspection</a>, <a href="request.html#form-binding">form</a>/<a href="request.html#query-binding">query</a> binding, business logic and finally response writing. With access to the <code>HttpContext</code> you are able to inspect all components of the request, and manipulate the response in any way you choose.</p>
-<h2 id="plain-text-responses">Plain Text responses</h2>
-<pre><code class="language-fsharp">let textHandler : HttpHandler =
-    Response.ofPlainText &quot;hello world&quot;
+    <main class="w-80-l fl-l pl3-l"><h1 id="configuration-builder">Configuration Builder</h1>
+<p>A thin wrapper around ConfigurationBuilder exposing a clean API for reading configuration values.</p>
+<table>
+<thead>
+<tr>
+<th>Operation</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="#base_path">base_path</a></td>
+<td>Set the base path of the <code>ConfigurationBuilder</code>.</td>
+</tr>
+<tr>
+<td><a href="#add_env">add_env</a></td>
+<td>Add Environment Variables to the <code>ConfigurationBuilder</code>.</td>
+</tr>
+<tr>
+<td><a href="#required_json">required_json</a></td>
+<td>Add required JSON file to the <code>ConfigurationBuilder</code>.</td>
+</tr>
+<tr>
+<td><a href="#optional_json">optional_json</a></td>
+<td>Add optional JSON file to the <code>ConfigurationBuilder</code>.</td>
+</tr>
+<tr>
+<td><a href="#required_ini">required_ini</a></td>
+<td>Add required INI file to the <code>ConfigurationBuilder</code>.</td>
+</tr>
+<tr>
+<td><a href="#optional_ini">optional_ini</a></td>
+<td>Add optional INI file to the <code>ConfigurationBuilder</code>.</td>
+</tr>
+<tr>
+<td><a href="#required_xml">required_xml</a></td>
+<td>Add required XML file to the <code>ConfigurationBuilder</code>.</td>
+</tr>
+<tr>
+<td><a href="#optional_xml">optional_xml</a></td>
+<td>Add optional XML file to the <code>ConfigurationBuilder</code>.</td>
+</tr>
+<tr>
+<td><a href="#in_memory">in_memory</a></td>
+<td>Add an in-memory <code>Dictionary&lt;string, string&gt;</code> to the <code>ConfigurationBuilder</code>.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="base_path"><code>base_path</code></h2>
+<pre><code class="language-fsharp">let config = configuration [||] {
+    base_path &quot;C:\\SOME\\PATH&quot;
+}
 </code></pre>
-<h2 id="html-responses">HTML responses</h2>
-<p>Write your views in plain F#, directly in your assembly, using the <a href="markup.html">Markup</a> module. A performant F# DSL capable of generating any angle-bracket markup. Also available directly as a standalone <a href="https://www.nuget.org/packages/Falco.Markup">NuGet</a> package.</p>
-<pre><code class="language-fsharp">let htmlHandler : HttpHandler =
-    let html =
-        Elem.html [ Attr.lang &quot;en&quot; ] [
-            Elem.head [] []
-            Elem.body [] [
-                Elem.h1 [] [ Text.raw &quot;Sample App&quot; ]
-            ]
-        ]
-
-    Response.ofHtml html
-
-// Automatically protect against XSS attacks
-let secureHtmlHandler : HttpHandler =
-    let html token =
-        Elem.html [] [
-            Elem.body [] [
-                Elem.form [ Attr.method &quot;post&quot; ] [
-                    Elem.input [ Attr.name &quot;first_name&quot; ]
-
-                    Elem.input [ Attr.name &quot;last_name&quot; ]
-
-                    // using the CSRF HTML helper
-                    Xss.antiforgeryInput token
-
-                    Elem.input [ Attr.type' &quot;submit&quot;; Attr.value &quot;Submit&quot; ]
-                ]
-            ]
-        ]
-
-    Response.ofHtmlCsrf html
+<h2 id="add_env"><code>add_env</code></h2>
+<pre><code class="language-fsharp">let config = configuration [||] {
+    add_env
+}
 </code></pre>
-<p>Alternatively, if you're using an external view engine and want to return an HTML response from a string literal, then you can use <code>Response.ofHtmlString</code>.</p>
-<pre><code class="language-fsharp">let htmlHandler : HttpHandler =
-    Response.ofHtmlString &quot;&lt;html&gt;...&lt;/html&gt;&quot;
+<h2 id="required_json"><code>required_json</code></h2>
+<pre><code class="language-fsharp">let config = configuration [||] {
+    required_json &quot;appsettings.json&quot;
+}
 </code></pre>
-<h2 id="json-responses">JSON responses</h2>
-<p>These handlers use the .NET built-in <code>System.Text.Json.JsonSerializer</code>.</p>
-<pre><code class="language-fsharp">type Person =
-    { First : string
-      Last  : string }
+<h2 id="optional_json"><code>optional_json</code></h2>
+<pre><code class="language-fsharp">let env = Environment.GetEnvironmentVariable(&quot;ASPNETCORE_ENVIRONMENT&quot;)
 
-let jsonHandler : HttpHandler =
-    let name = { First = &quot;John&quot;; Last = &quot;Doe&quot; }
-    Response.ofJson name
-
-let jsonOptionsHandler : HttpHandler =
-    let options = JsonSerializerOptions()
-    options.IgnoreNullValues &lt;- true
-    let name = { First = &quot;John&quot;; Last = &quot;Doe&quot; }
-    Response.ofJson options name
+let config = configuration [||] {
+    optional_json (String.Concat([|&quot;appsettings.&quot;; env; &quot;.json&quot;|]))
+}
 </code></pre>
-<h2 id="redirect-301302-response">Redirect (301/302) Response</h2>
-<pre><code class="language-fsharp">let oldUrlHandler : HttpHandler =
-    Response.redirectPermanently &quot;/new-url&quot; // HTTP 301
-
-let redirectUrlHandler : HttpHandler =
-    Response.redirectTemporarily &quot;/new-url&quot; // HTTP 302
+<h2 id="required_ini"><code>required_ini</code></h2>
+<pre><code class="language-fsharp">let config = configuration [||] {
+    required_ini &quot;appsettings.ini&quot;
+}
 </code></pre>
-<h2 id="content-disposition">Content Disposition</h2>
-<pre><code class="language-fsharp">let inlineBinaryHandler : HttpHandler =
-    let contentType = &quot;image/jpeg&quot;
-    let headers = [ HeaderNames.CacheControl,  &quot;no-store, max-age=0&quot; ]
-    let bytes = // ... binary data
-    Response.ofBinary contentType headers bytes
+<h2 id="optional_ini"><code>optional_ini</code></h2>
+<pre><code class="language-fsharp">let env = Environment.GetEnvironmentVariable(&quot;ASPNETCORE_ENVIRONMENT&quot;)
 
-let attachmentHandler : HttpHandler =
-    let filename = &quot;profile.jpg&quot;
-    let contentType = &quot;image/jpeg&quot;
-    let headers = [ HeaderNames.CacheControl,  &quot;no-store, max-age=0&quot; ]
-    let bytes = // ... binary data
-    Response.ofAttachment filename contentType headers bytes
+let config = configuration [||] {
+    optional_ini (String.Concat([|&quot;appsettings.&quot;; env; &quot;.ini&quot;|]))
+}
 </code></pre>
-<h2 id="response-modifiers">Response Modifiers</h2>
-<p>Response modifiers can be thought of as the in-and-out modification of the <code>HttpResponse</code>. A preamble to writing and returning. Since these functions receive the <code>Httpcontext</code> as input and return it as the only output, they can take advantage of function compoistion.</p>
-<h3 id="set-the-status-code-of-the-response">Set the status code of the response</h3>
-<pre><code class="language-fsharp">let notFoundHandler : HttpHandler =
-    Response.withStatusCode 404
-    &gt;&gt; Response.ofPlainText &quot;Not found&quot;
+<h2 id="required_xml"><code>required_xml</code></h2>
+<pre><code class="language-fsharp">let config = configuration [||] {
+    required_json &quot;appsettings.xml&quot;
+}
 </code></pre>
-<h3 id="add-a-headers-to-the-response">Add a header(s) to the response</h3>
-<pre><code class="language-fsharp">let handlerWithHeader : HttpHandler =
-    Response.withHeader &quot;Content-Language&quot; &quot;en-us&quot;
-    &gt;&gt; Response.ofPlainText &quot;Hello world&quot;
+<h2 id="optional_xml"><code>optional_xml</code></h2>
+<pre><code class="language-fsharp">let env = Environment.GetEnvironmentVariable(&quot;ASPNETCORE_ENVIRONMENT&quot;)
 
-let handlerWithHeaders : HttpHandler =
-    Response.withHeaders [ &quot;Content-Language&quot; &quot;en-us&quot; ]
-    &gt;&gt; Response.ofPlainText &quot;Hello world&quot;
+let config = configuration [||] {
+    optional_xml (String.Concat([|&quot;appsettings.&quot;; env; &quot;.xml&quot;|]))
+}
 </code></pre>
-<h3 id="add-a-cookie-to-the-response">Add a cookie to the response</h3>
-<blockquote>
-<p>IMPORTANT: <em>Do not</em> use this for authentication. Instead use the <code>Response.signInAndRedirect</code> and <code>Response.signOutAndRedirect</code> functions found in the <a href="security.html">Authentication</a> module.</p>
-</blockquote>
-<pre><code class="language-fsharp">let handlerWithCookie : HttpHandler =
-    Response.withCookie &quot;greeted&quot; &quot;1&quot;
-    &gt;&gt; Response.ofPlainText &quot;Hello world&quot;
+<h2 id="in_memory"><code>in_memory</code></h2>
+<pre><code class="language-fsharp">let pairs = [ &quot;FALCO_VAR&quot;, &quot;TEST&quot; ]
 
-let handlerWithCookieOptions : HttpHandler =
-    let options = CookieOptions()
-    options.Expires &lt;- DateTime.Now.Minutes(15)
-    Response.withCookie options &quot;greeted&quot; &quot;1&quot;
-    &gt;&gt; Response.ofPlainText &quot;Hello world&quot;
+let config = configuration [||] {
+    in_memory pairs
+}
 </code></pre>
 </main>
 </div>
@@ -209,6 +201,7 @@ let handlerWithCookieOptions : HttpHandler =
       <li><a href="response.html#redirect-301302-response">Redirect (301/302) Response</a></li>
       <li><a href="response.html#content-disposition">Content Disposition</a></li>
       <li><a href="response.html#response-modifiers">Response Modifiers</a></li>
+      <li><a href="response.html#debugging-requests">Debugging Requests</a></li>
     </ul>
   </li>
   <li><a href="request.html">Accessing request data</a>
