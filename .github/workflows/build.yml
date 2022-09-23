@@ -19,7 +19,7 @@ jobs:
           dotnet-version: ${{ matrix.dotnet-version }}
 
       - name: Install dependencies
-        run: dotnet restore .\site\
+        run: dotnet restore site
 
       - name: Build
-        run: dotnet build .\site\ -t:GenerateSite -c Release --no-restore
+        run: dotnet build site -t:GenerateSite -c Release --no-restore
