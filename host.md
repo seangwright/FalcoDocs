@@ -6,6 +6,7 @@
 
 | Operation | Description |
 | --------- | ----------- |
+| [add_service](#add_service) | Add a new service descriptor into the IServiceCollection. |
 | [add_antiforgery](#add_antiforgery) | Add Antiforgery support into the `IServiceCollection`. |
 | [add_cookie](#add_cookie) | Add configured cookie into the `IServiceCollection`. |
 | [add_cookies](#add_cookies) | Add configured cookie collection into the `IServiceCollection`. |
@@ -143,6 +144,7 @@ webHost [||] {
 
 | Operation | Description |
 | --------- | ----------- |
+| [use_middleware](#use_middleware) | Use the specified middleware. |
 | [use_if](#use_if) | Use the specified middleware if the provided predicate is "true". |
 | [use_ifnot](#use_ifnot) | Use the specified middleware if the provided predicate is "true". |
 | [use_authentication](#use_authentication) | Use authorization middleware. Call before any middleware that depends on users being authenticated. |
