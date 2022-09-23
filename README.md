@@ -17,5 +17,5 @@ Falco depends only on the high-performance base components of .NET and ASP.NET C
 - [View engine](markup.md)
 - [Host configuration](host.md)
 - [Security](security.md)
-- [Model Binding](model-binding.md)
 - [Dependency Injection](dependency-injection.md)
+- [Model Binding](model-binding.md)

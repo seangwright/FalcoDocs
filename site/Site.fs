@@ -184,7 +184,7 @@ let main args =
     |> fun text -> File.WriteAllText(Path.Join(buildDir.FullName, "index.html"), text)
 
     // Render docs
-    let docsDir = DirectoryInfo(Path.Join(workingDir.FullName, "../content"))
+    let docsDir = DirectoryInfo(Path.Join(workingDir.FullName, "..\\"))
     let docsBuildDir = Directory.CreateDirectory(Path.Join(buildDir.FullName, "docs"))
 
     Log.info "Downloading external markdown files..."
