@@ -85,6 +85,86 @@
     </nav>
     <main class="w-80-l fl-l pl3-l"><h1 id="host-configuration">Host Configuration</h1>
 <p><a href="https://docs.microsoft.com/en-us/aspnet/core/fundamentals/servers/kestrel">Kestrel</a> is the web server at the heart of ASP.NET. It's performant, secure, and maintained by incredibly smart people.</p>
+<h2 id="config-logging-other-operations">Config, Logging &amp; Other Operations</h2>
+<table>
+<thead>
+<tr>
+<th>Operation</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="#host">host</a></td>
+<td>Configure the host via <code>IHostBuilder</code>.</td>
+</tr>
+<tr>
+<td><a href="#logging">logging</a></td>
+<td>Configure logging via <code>ILoggingBuilder</code>.</td>
+</tr>
+<tr>
+<td><a href="#not_found">not_found</a></td>
+<td>Include a catch-all (i.e., Not Found) HttpHandler (must be added last).</td>
+</tr>
+</tbody>
+</table>
+<h3 id="logging"><code>logging</code></h3>
+<pre><code class="language-fsharp">open Falco
+open Falco.Routing
+open Falco.HostBuilder
+open Microsoft.Extensions.Hosting
+open Serilog
+
+let configureHost (host : IHostBuilder) =
+    host.AddSerilog()
+    host
+
+webHost [||] {
+    host configureHost
+
+    endpoints [
+        get &quot;/&quot; (Response.ofPlainText &quot;Hello world&quot;)
+    ]
+}
+</code></pre>
+<pre><code class="language-fsharp">open Falco
+open Falco.Routing
+open Falco.HostBuilder
+open Microsoft.AspNetCore.Builder
+open Microsoft.Extensions.Logging
+
+let configureLogging (log : ILoggingBuilder) =
+    log.ClearProviders()
+    log.AddConsole()
+    log
+
+webHost [||] {
+    logging configureLogging
+
+    endpoints [
+        get &quot;/&quot; (Response.ofPlainText &quot;Hello world&quot;)
+    ]
+}
+</code></pre>
+<h3 id="not_found"><code>not_found</code></h3>
+<pre><code class="language-fsharp">open Falco
+open Falco.Routing
+open Falco.HostBuilder
+open Microsoft.AspNetCore.Builder
+
+module ErrorPages =
+    let unauthorized : HttpHandler =
+        Response.withStatusCode 404
+        &gt;&gt; Response.ofPlainText &quot;Not Found&quot;
+
+webHost [||] {
+    not_found ErrorPages.notFound
+
+    endpoints [
+        get &quot;/&quot; (Response.ofPlainText &quot;Hello world&quot;)
+    ]
+}
+</code></pre>
 <h2 id="registering-services">Registering Services</h2>
 <table>
 <thead>
@@ -480,6 +560,8 @@ type DbConnectionFactory (connectionString : string) =
             conn.TryOpenConnection()
             conn
 
+let connectToDb : HttpHandler =
+
 [&lt;EntryPoint&gt;]
 let main args =
     // Using the ConfigurationBuilder
@@ -534,64 +616,6 @@ webHost [||] {
 
     endpoints [
         any &quot;/&quot; displayCulture
-    ]
-}
-</code></pre>
-<h2 id="other-operations">Other Operations</h2>
-<table>
-<thead>
-<tr>
-<th>Operation</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><a href="#logging">logging</a></td>
-<td>Configure logging via <code>ILogger</code>.</td>
-</tr>
-<tr>
-<td><a href="#not_found">not_found</a></td>
-<td>Include a catch-all (i.e., Not Found) HttpHandler (must be added last).</td>
-</tr>
-</tbody>
-</table>
-<h3 id="logging"><code>logging</code></h3>
-<pre><code class="language-fsharp">open Falco
-open Falco.Routing
-open Falco.HostBuilder
-open Microsoft.AspNetCore.Builder
-open Microsoft.Extensions.Logging
-
-let configureLogging (log : ILoggingBuilder) =
-    log.ClearProviders()
-    log.AddConsole()
-    log
-
-webHost [||] {
-    logging configureLogging
-
-    endpoints [
-        get &quot;/&quot; (Response.ofPlainText &quot;Hello world&quot;)
-    ]
-}
-</code></pre>
-<h3 id="not_found"><code>not_found</code></h3>
-<pre><code class="language-fsharp">open Falco
-open Falco.Routing
-open Falco.HostBuilder
-open Microsoft.AspNetCore.Builder
-
-module ErrorPages =
-    let unauthorized : HttpHandler =
-        Response.withStatusCode 404
-        &gt;&gt; Response.ofPlainText &quot;Not Found&quot;
-
-webHost [||] {
-    not_found ErrorPages.notFound
-
-    endpoints [
-        get &quot;/&quot; (Response.ofPlainText &quot;Hello world&quot;)
     ]
 }
 </code></pre>

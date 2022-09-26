@@ -174,7 +174,7 @@ let main args =
     let template = Templates(workingDir.FullName)
 
     Log.info "Rendering homepage..."
-    let indexMarkdown = http.GetStringAsync(@"https://raw.githubusercontent.com/pimbrouwers/Falco/develop/README.md").Result
+    let indexMarkdown = http.GetStringAsync(@"https://raw.githubusercontent.com/pimbrouwers/Falco/master/README.md").Result
     let mainContent = Markdown.render indexMarkdown
 
     { Title = String.Empty

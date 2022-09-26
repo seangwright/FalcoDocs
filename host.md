@@ -2,6 +2,79 @@
 
 [Kestrel](https://docs.microsoft.com/en-us/aspnet/core/fundamentals/servers/kestrel) is the web server at the heart of ASP.NET. It's performant, secure, and maintained by incredibly smart people.
 
+## Config, Logging & Other Operations
+
+| Operation | Description |
+| --------- | ----------- |
+| [host](#host) | Configure the host via `IHostBuilder`. |
+| [logging](#logging) | Configure logging via `ILoggingBuilder`. |
+| [not_found](#not_found) | Include a catch-all (i.e., Not Found) HttpHandler (must be added last). |
+
+### `logging`
+
+```fsharp
+open Falco
+open Falco.Routing
+open Falco.HostBuilder
+open Microsoft.Extensions.Hosting
+open Serilog
+
+let configureHost (host : IHostBuilder) =
+    host.AddSerilog()
+    host
+
+webHost [||] {
+    host configureHost
+
+    endpoints [
+        get "/" (Response.ofPlainText "Hello world")
+    ]
+}
+```
+
+```fsharp
+open Falco
+open Falco.Routing
+open Falco.HostBuilder
+open Microsoft.AspNetCore.Builder
+open Microsoft.Extensions.Logging
+
+let configureLogging (log : ILoggingBuilder) =
+    log.ClearProviders()
+    log.AddConsole()
+    log
+
+webHost [||] {
+    logging configureLogging
+
+    endpoints [
+        get "/" (Response.ofPlainText "Hello world")
+    ]
+}
+```
+
+### `not_found`
+
+```fsharp
+open Falco
+open Falco.Routing
+open Falco.HostBuilder
+open Microsoft.AspNetCore.Builder
+
+module ErrorPages =
+    let unauthorized : HttpHandler =
+        Response.withStatusCode 404
+        >> Response.ofPlainText "Not Found"
+
+webHost [||] {
+    not_found ErrorPages.notFound
+
+    endpoints [
+        get "/" (Response.ofPlainText "Hello world")
+    ]
+}
+```
+
 ## Registering Services
 
 | Operation | Description |
@@ -365,6 +438,8 @@ type DbConnectionFactory (connectionString : string) =
             conn.TryOpenConnection()
             conn
 
+let connectToDb : HttpHandler =
+
 [<EntryPoint>]
 let main args =
     // Using the ConfigurationBuilder
@@ -422,58 +497,6 @@ webHost [||] {
 
     endpoints [
         any "/" displayCulture
-    ]
-}
-```
-
-## Other Operations
-
-| Operation | Description |
-| --------- | ----------- |
-| [logging](#logging) | Configure logging via `ILogger`. |
-| [not_found](#not_found) | Include a catch-all (i.e., Not Found) HttpHandler (must be added last). |
-
-### `logging`
-
-```fsharp
-open Falco
-open Falco.Routing
-open Falco.HostBuilder
-open Microsoft.AspNetCore.Builder
-open Microsoft.Extensions.Logging
-
-let configureLogging (log : ILoggingBuilder) =
-    log.ClearProviders()
-    log.AddConsole()
-    log
-
-webHost [||] {
-    logging configureLogging
-
-    endpoints [
-        get "/" (Response.ofPlainText "Hello world")
-    ]
-}
-```
-
-### `not_found`
-
-```fsharp
-open Falco
-open Falco.Routing
-open Falco.HostBuilder
-open Microsoft.AspNetCore.Builder
-
-module ErrorPages =
-    let unauthorized : HttpHandler =
-        Response.withStatusCode 404
-        >> Response.ofPlainText "Not Found"
-
-webHost [||] {
-    not_found ErrorPages.notFound
-
-    endpoints [
-        get "/" (Response.ofPlainText "Hello world")
     ]
 }
 ```
